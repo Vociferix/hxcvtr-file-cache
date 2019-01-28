@@ -2,12 +2,12 @@ mod auto_cache;
 mod full_cache;
 mod swap_cache;
 
-pub use self::auto_cache::AutoCache;
-pub use self::full_cache::FullCache;
-pub use self::swap_cache::SwapCache;
+pub use auto_cache::AutoCache;
+pub use full_cache::FullCache;
+pub use swap_cache::SwapCache;
 
 use std::io::{Read, Seek};
-use std::ops::Range;
+use std::ops::RangeBounds;
 
 #[derive(Debug)]
 pub enum Error {
@@ -56,7 +56,6 @@ impl std::error::Error for Error {}
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        use std::fmt::Display;
         match self {
             Error::IO(e) => e.fmt(f),
             Error::Poison(msg) => write!(f, "Poison Error: {}", msg),
@@ -73,5 +72,5 @@ pub trait Cache {
 
     fn into_inner(self) -> Result<Self::Input>;
     fn len(&self) -> u64;
-    fn traverse_chunks<F: FnMut(&[u8]) -> Result<()>>(&self, range: Range<u64>, f: F) -> Result<()>;
+    fn traverse_chunks<R: RangeBounds<u64>, F: FnMut(&[u8]) -> Result<()>>(&self, range: R, f: F) -> Result<()>;
 }

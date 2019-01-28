@@ -1,7 +1,7 @@
 use super::{Cache, FullCache, SwapCache};
 
 use std::io::{Read, Seek};
-use std::ops::Range;
+use std::ops::RangeBounds;
 
 pub enum AutoCache<T: Read + Seek> {
     Full(FullCache<T>),
@@ -63,7 +63,7 @@ impl<T: Read + Seek> Cache for AutoCache<T> {
         }
     }
 
-    fn traverse_chunks<F: FnMut(&[u8]) -> Result<()>>(&self, range: Range<u64>, f: F) -> Result<()> {
+    fn traverse_chunks<R: RangeBounds<u64>, F: FnMut(&[u8]) -> Result<()>>(&self, range: R, f: F) -> Result<()> {
         match self {
             Full(ref full) => full.traverse_chunks(range, f),
             Swap(ref swap) => swap.traverse_chunks(range, f),

@@ -1,6 +1,6 @@
 use super::Cache;
 use std::io::{Read, Seek, SeekFrom};
-use std::ops::Range;
+use std::ops::{RangeBounds, Bound};
 
 use super::{Result, Error};
 
@@ -10,7 +10,7 @@ pub struct FullCache<T: Read + Seek> {
 }
 
 impl FullCache<std::fs::File> {
-    fn from_file(source: std::fs::File) -> Result<Self> {
+    pub fn from_file(source: std::fs::File) -> Result<Self> {
         FullCache::new(source)
     }
 }
@@ -44,11 +44,29 @@ impl<T: Read + Seek> Cache for FullCache<T> {
         self.data.len() as u64
     }
 
-    fn traverse_chunks<F: FnMut(&[u8]) -> Result<()>>(&self, range: Range<u64>, f: F) -> Result<()> {
+    fn traverse_chunks<R: RangeBounds<u64>, F: FnMut(&[u8]) -> Result<()>>(&self, range: R, f: F) -> Result<()> {
         let mut f = f;
-        if range.start < self.len() {
-            f(&self.data[range.start as usize..range.end as usize])?;
-        }
+        let len = self.data.len() as u64;
+        let start = match range.start_bound() {
+            Bound::Included(start) => {
+                if *start >= len { return Ok(()); } else { *start }
+            },
+            Bound::Excluded(start) => {
+                let start = *start + 1;
+                if start > len { return Ok(()); } else { start }
+            },
+            Bound::Unbounded => 0,
+        };
+        let end = match range.end_bound() {
+            Bound::Included(end) => {
+                if *end >= len { len } else { *end + 1 }
+            },
+            Bound::Excluded(end) => {
+                if *end > len { len } else { *end }
+            },
+            Bound::Unbounded => len
+        };
+        f(&self.data[start as usize..end as usize])?;
         Ok(())
     }
 }

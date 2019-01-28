@@ -1,7 +1,7 @@
 use super::Cache;
 use std::collections::HashMap;
 use std::io::{Read, Seek, SeekFrom};
-use std::ops::Range;
+use std::ops::{RangeBounds, Bound};
 use std::sync::Mutex;
 
 use super::{Result, Error};
@@ -9,9 +9,11 @@ use super::{Result, Error};
 struct Frame {
     data: Vec<u8>,
     page: u64,
-    next: Option<usize>,
-    prev: Option<usize>,
+    next: usize,
+    prev: usize,
 }
+
+const NULL: usize = std::usize::MAX;
 
 struct SwapCacheImpl<T: Read + Seek> {
     page_sz: u64,
@@ -46,8 +48,8 @@ impl<T: Read + Seek> SwapCacheImpl<T> {
             frames.push(Frame {
                 data,
                 page: 0,
-                next: None,
-                prev: None,
+                next: NULL,
+                prev: NULL,
             })
         } else {
             for i in 0..frame_count {
@@ -61,22 +63,22 @@ impl<T: Read + Seek> SwapCacheImpl<T> {
                     frames.push(Frame {
                         data,
                         page: 0,
-                        next: None,
-                        prev: Some(1),
+                        next: NULL,
+                        prev: 1,
                     });
                 } else if i == last {
                     frames.push(Frame {
                         data,
                         page: last as u64,
-                        next: Some(last),
-                        prev: None,
+                        next: last,
+                        prev: NULL,
                     });
                 } else {
                     frames.push(Frame {
                         data,
                         page: i as u64,
-                        next: Some(i - 1),
-                        prev: Some(i + 1),
+                        next: i - 1,
+                        prev: i + 1,
                     });
                 }
             }
@@ -89,6 +91,22 @@ impl<T: Read + Seek> SwapCacheImpl<T> {
             front: last,
             back: 0,
         })
+    }
+
+    fn get_frame(&self, fidx: usize) -> &Frame {
+        &self.frames[fidx]
+    }
+
+    fn get_frame_mut(&mut self, fidx: usize) -> &mut Frame {
+        &mut self.frames[fidx]
+    }
+
+    fn map_frame<Ret, F: Fn(&Frame) -> Ret>(&self, fidx: usize, f: F) -> Ret {
+        f(self.get_frame(fidx))
+    }
+
+    fn map_frame_mut<Ret, F: Fn(&mut Frame) -> Ret>(&mut self, fidx: usize, f: F) -> Ret {
+        f(self.get_frame_mut(fidx))
     }
 
     fn load_page(&mut self, page: u64) -> Result<usize> {
@@ -116,44 +134,44 @@ impl<T: Read + Seek> SwapCacheImpl<T> {
 
     fn promote_frame(&mut self, fidx: usize) {
         if self.back != self.front {
-            match self.frames[fidx].next {
-                Some(next) => {
-                    match self.frames[fidx].prev {
-                        Some(prev) => {
-                            self.frames[prev].next = Some(next);
-                            self.frames[next].prev = Some(prev);
-                        }
-                        None => {
-                            self.front = next;
-                            self.frames[next].prev = None;
-                        }
-                    }
-                    self.frames[self.back].next = Some(fidx);
-                    self.frames[fidx].prev = Some(self.back);
-                    self.frames[fidx].next = None;
+            let (next_idx, prev_idx) = self.map_frame(fidx, |frame| {
+                (frame.next, frame.prev)
+            });
+            if next_idx != NULL {
+                if prev_idx != NULL {
+                    self.get_frame_mut(prev_idx).next = next_idx;
+                    self.get_frame_mut(next_idx).prev = prev_idx;
+                } else {
+                    self.front = next_idx;
+                    self.get_frame_mut(next_idx).prev = NULL;
                 }
-                None => {}
+                self.get_frame_mut(self.back).next = fidx;
+                let back_idx = self.back;
+                self.map_frame_mut(fidx, |frame| {
+                    frame.prev = back_idx;
+                    frame.next = NULL;
+                });
             }
         }
     }
 
     fn get_chunk(&mut self, pos: u64) -> Result<&[u8]> {
-        let fidx: usize;
         let page = pos / self.page_sz;
 
-        let fidx_opt: Option<usize> = match self.map.get(&page) {
-            Some(fidx) => Some(*fidx),
-            None => None,
+        let fidx = match self.map.get(&page) {
+            Some(fidx) => *fidx,
+            None => NULL,
         };
 
-        fidx = match fidx_opt {
-            Some(fidx) => fidx,
-            None => self.load_page(page)?,
+        let fidx = if fidx == NULL {
+            self.load_page(page)?
+        } else {
+            fidx
         };
 
         self.promote_frame(fidx);
 
-        Ok(&self.frames[fidx].data[(pos - (page * self.page_sz)) as usize..])
+        Ok(&self.get_frame(fidx).data[(pos - (page * self.page_sz)) as usize..])
     }
 }
 
@@ -211,18 +229,38 @@ impl<T: Read + Seek> Cache for SwapCache<T> {
         self.sz
     }
 
-    fn traverse_chunks<F: FnMut(&[u8]) -> Result<()>>(&self, range: Range<u64>, f: F) -> Result<()> {
-        if range.start < self.sz {
+    fn traverse_chunks<R: RangeBounds<u64>, F: FnMut(&[u8]) -> Result<()>>(&self, range: R, f: F) -> Result<()> {
+        let len = self.sz;
+        let start = match range.start_bound() {
+            Bound::Included(start) => {
+                if *start >= len { return Ok(()); } else { *start }
+            },
+            Bound::Excluded(start) => {
+                let start = *start + 1;
+                if start > len { return Ok(()); } else { start }
+            },
+            Bound::Unbounded => 0,
+        };
+        let end = match range.end_bound() {
+            Bound::Included(end) => {
+                if *end >= len { len } else { *end + 1 }
+            },
+            Bound::Excluded(end) => {
+                if *end > len { len } else { *end }
+            },
+            Bound::Unbounded => len
+        };
+        if start < len {
             let mut f = f;
             let mut guard = match self.swap.lock() {
                 Ok(guard) => guard,
                 Err(e) => return Err(Error::from_poison(e)),
             };
-            let mut pos = range.start;
+            let mut pos = start;
             loop {
                 let chunk = (*guard).get_chunk(pos)?;
                 let new_pos = pos + chunk.len() as u64;
-                if new_pos > range.end {
+                if new_pos > end {
                     return f(&chunk[..(new_pos - pos) as usize]);
                 } else {
                     f(chunk)?;
