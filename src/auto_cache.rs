@@ -1,6 +1,6 @@
 use super::{Cache, FullCache, SwapCache};
 
-use std::io::{Read, Seek};
+use std::io::{Read, Seek, SeekFrom};
 use std::ops::RangeBounds;
 
 pub enum AutoCache<T: Read + Seek> {
@@ -13,33 +13,45 @@ use self::AutoCache::Swap;
 
 use super::{Result, Error};
 
-impl AutoCache<std::fs::File> {
-    pub fn from_file(source: std::fs::File, mem_max: usize) -> Result<Self> {
-        let len;
-        match source.metadata() {
-            Ok(meta) => {
-                len = meta.len();
-            }
-            Err(e) => {
-                return Err(Error::from_io(e));
-            }
-        }
-        AutoCache::new(source, len, mem_max)
+fn sqrt(n: usize) -> usize {
+    let mut shift: isize = 2;
+    let mut shifted = n >> shift;
+    while shifted != 0 && shifted != n {
+        shift += 2;
+        shifted = n >> shift;
     }
+    shift -= 2;
+    let mut ret = 0;
+    while shift >= 0 {
+        ret <<= 1;
+        let candidate = ret + 1;
+        if candidate * candidate <= (n >> shift) {
+            ret = candidate;
+        } else {
+            break;
+        }
+        shift -= 2;
+    }
+    ret
 }
 
 impl<T: Read + Seek> AutoCache<T> {
-    pub fn new(source: T, len: u64, mem_max: usize) -> Result<Self> {
+    pub fn new(source: T, mem_max: usize) -> Result<Self> {
+        if mem_max == 0 {
+            return Err(Error::new_zero_cache("AutoCache configured with no memory"));
+        }
+        let mut source = source;
+        let len = match source.seek(SeekFrom::End(0)) {
+            Ok(len) => len,
+            Err(e) => return Err(Error::from_io(e)),
+        };
         if len > mem_max as u64 {
-            let page_sz = (mem_max as f64).sqrt() as usize;
-            if page_sz == 0 {
-                return Err(Error::new_zero_cache("Not enough memory requested for AutoCache"));
-            }
+            let page_sz = sqrt(mem_max);
             let mut frame_count = page_sz + 1;
             if page_sz * frame_count > mem_max {
                 frame_count = page_sz;
             }
-            Ok(Swap(SwapCache::new(source, len, page_sz, frame_count)?))
+            Ok(Swap(SwapCache::new(source, page_sz, frame_count)?))
         } else {
             Ok(Full(FullCache::new(source)?))
         }

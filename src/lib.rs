@@ -1,10 +1,12 @@
 mod auto_cache;
 mod full_cache;
 mod swap_cache;
+mod cache_reader;
 
 pub use auto_cache::AutoCache;
 pub use full_cache::FullCache;
 pub use swap_cache::SwapCache;
+pub use cache_reader::CacheReader;
 
 use std::io::{Read, Seek};
 use std::ops::RangeBounds;
@@ -73,4 +75,17 @@ pub trait Cache {
     fn into_inner(self) -> Result<Self::Input>;
     fn len(&self) -> u64;
     fn traverse_chunks<R: RangeBounds<u64>, F: FnMut(&[u8]) -> Result<()>>(&self, range: R, f: F) -> Result<()>;
+
+    fn read(&self, offset: u64, buffer: &mut [u8]) -> Result<u64> {
+        use std::io::Write;
+        let mut total = 0;
+        self.traverse_chunks(offset..buffer.len() as u64, |chunk| {
+            total += match (&mut buffer[total..]).write(chunk) {
+                Ok(len) => len,
+                Err(e) => return Err(Error::from_io(e)),
+            };
+            Ok(())
+        })?;
+        Ok(total as u64)
+    }
 }

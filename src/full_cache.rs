@@ -9,12 +9,6 @@ pub struct FullCache<T: Read + Seek> {
     data: Vec<u8>,
 }
 
-impl FullCache<std::fs::File> {
-    pub fn from_file(source: std::fs::File) -> Result<Self> {
-        FullCache::new(source)
-    }
-}
-
 impl<T: Read + Seek> FullCache<T> {
     pub fn new(source: T) -> Result<Self> {
         let mut source = source;

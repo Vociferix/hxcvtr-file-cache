@@ -180,34 +180,22 @@ pub struct SwapCache<T: Read + Seek> {
     swap: Mutex<SwapCacheImpl<T>>,
 }
 
-impl SwapCache<std::fs::File> {
-    pub fn from_file(
-        source: std::fs::File,
-        page_size: usize,
-        frame_count: usize,
-    ) -> Result<Self> {
-        let len;
-        match source.metadata() {
-            Ok(meta) => {
-                len = meta.len();
-            }
-            Err(e) => return Err(Error::from_io(e)),
-        }
-        SwapCache::new(source, len, page_size, frame_count)
-    }
-}
-
 impl<T: Read + Seek> SwapCache<T> {
-    pub fn new(source: T, len: u64, page_size: usize, frame_count: usize) -> Result<Self> {
+    pub fn new(source: T, page_size: usize, frame_count: usize) -> Result<Self> {
+        let mut source = source;
+        let len = match source.seek(SeekFrom::End(0)) {
+            Ok(len) => len,
+            Err(e) => return Err(Error::from_io(e)),
+        };
         if page_size != 0 && frame_count != 0 {
             Ok(SwapCache {
                 sz: len,
                 swap: Mutex::new(SwapCacheImpl::new(source, page_size, frame_count)?),
             })
         } else if page_size == 0 {
-            Err(Error::new_zero_cache("swap cache given zero pages"))
+            Err(Error::new_zero_cache("swap cache configured with zero pages"))
         } else {
-            Err(Error::new_zero_cache("swap cache given zero frames"))
+            Err(Error::new_zero_cache("swap cache configured with zero frames"))
         }
     }
 }
