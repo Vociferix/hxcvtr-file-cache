@@ -3,6 +3,9 @@ mod full_cache;
 mod swap_cache;
 mod cache_reader;
 
+#[cfg(test)]
+mod tests;
+
 pub use auto_cache::AutoCache;
 pub use full_cache::FullCache;
 pub use swap_cache::SwapCache;
@@ -74,6 +77,7 @@ pub trait Cache {
 
     fn into_inner(self) -> Result<Self::Input>;
     fn len(&self) -> u64;
+    fn cache_size(&self) -> usize;
     fn traverse_chunks<R: RangeBounds<u64>, F: FnMut(&[u8]) -> Result<()>>(&self, range: R, f: F) -> Result<()>;
 
     fn read(&self, offset: u64, buffer: &mut [u8]) -> Result<u64> {

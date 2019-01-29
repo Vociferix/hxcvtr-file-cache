@@ -38,6 +38,10 @@ impl<T: Read + Seek> Cache for FullCache<T> {
         self.data.len() as u64
     }
 
+    fn cache_size(&self) -> usize {
+        self.data.len()
+    }
+
     fn traverse_chunks<R: RangeBounds<u64>, F: FnMut(&[u8]) -> Result<()>>(&self, range: R, f: F) -> Result<()> {
         let mut f = f;
         let len = self.data.len() as u64;

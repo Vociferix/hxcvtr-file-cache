@@ -53,7 +53,7 @@ impl<T: Read + Seek> SwapCacheImpl<T> {
             })
         } else {
             for i in 0..frame_count {
-                map.insert((i as u64) * (page_size as u64), i);
+                map.insert(i as u64, i);
                 let mut data = vec![0; page_size as usize];
                 match source.read(&mut data) {
                     Ok(_) => {}
@@ -69,7 +69,7 @@ impl<T: Read + Seek> SwapCacheImpl<T> {
                 } else if i == last {
                     frames.push(Frame {
                         data,
-                        page: last as u64,
+                        page: i as u64,
                         next: last,
                         prev: NULL,
                     });
@@ -129,6 +129,8 @@ impl<T: Read + Seek> SwapCacheImpl<T> {
 
         self.frames[self.front].page = page;
 
+        self.map.insert(page, self.front);
+
         Ok(self.front)
     }
 
@@ -177,6 +179,7 @@ impl<T: Read + Seek> SwapCacheImpl<T> {
 
 pub struct SwapCache<T: Read + Seek> {
     sz: u64,
+    cache_sz: usize,
     swap: Mutex<SwapCacheImpl<T>>,
 }
 
@@ -190,6 +193,7 @@ impl<T: Read + Seek> SwapCache<T> {
         if page_size != 0 && frame_count != 0 {
             Ok(SwapCache {
                 sz: len,
+                cache_sz: page_size * frame_count,
                 swap: Mutex::new(SwapCacheImpl::new(source, page_size, frame_count)?),
             })
         } else if page_size == 0 {
@@ -215,6 +219,10 @@ impl<T: Read + Seek> Cache for SwapCache<T> {
 
     fn len(&self) -> u64 {
         self.sz
+    }
+
+    fn cache_size(&self) -> usize {
+        self.cache_sz
     }
 
     fn traverse_chunks<R: RangeBounds<u64>, F: FnMut(&[u8]) -> Result<()>>(&self, range: R, f: F) -> Result<()> {

@@ -27,8 +27,6 @@ fn sqrt(n: usize) -> usize {
         let candidate = ret + 1;
         if candidate * candidate <= (n >> shift) {
             ret = candidate;
-        } else {
-            break;
         }
         shift -= 2;
     }
@@ -72,6 +70,13 @@ impl<T: Read + Seek> Cache for AutoCache<T> {
         match self {
             Full(ref full) => full.len(),
             Swap(ref swap) => swap.len(),
+        }
+    }
+
+    fn cache_size(&self) -> usize {
+        match self {
+            Full(ref full) => full.cache_size(),
+            Swap(ref swap) => swap.cache_size(),
         }
     }
 
