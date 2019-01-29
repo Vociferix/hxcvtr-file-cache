@@ -86,7 +86,7 @@ impl<C: Cache> Seek for CacheReader<C> {
                 if offset > len {
                     len
                 } else {
-                    0
+                    offset
                 }
             },
         };
