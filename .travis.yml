@@ -34,18 +34,28 @@ addons:
       - binutils-dev
       - libiberty-dev
 
-before_script:
-  - rustup update
-  - rustup component add clippy || rustup component add clippy-preview
-  - rustup component add rustfmt || rustup component add rustfmt-preview
+before_script: |
+  if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
+    rustup update
+    rustup component add clippy
+    rustup component add rustfmt
+  fi
 
 script: |
-  export RUST_BACKTRACE=1 &&
-  cargo build --verbose &&
-  cargo clippy --verbose &&
-  cargo fmt -- --check &&
-  cargo test --verbose &&
-  cargo doc --no-deps --verbose
+  if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
+    export RUST_BACKTRACE=1 &&
+    cargo build --verbose &&
+    cargo clippy --verbose &&
+    cargo fmt -- --check &&
+    cargo test --verbose &&
+    cargo doc --no-deps --verbose
+  else
+    export RUST_BACKTRACE=1 &&
+    cargo build --verbose &&
+    cargo test --verbose &&
+    cargo doc --no-deps --verbose
+  fi
+
 
 after_success: |
   if [[ "$TRAVIS_OS_NAME" == linux && "$TRAVIS_RUST_VERSION" == stable ]]; then
