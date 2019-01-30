@@ -1,12 +1,32 @@
 use super::{Cache, Error};
 use std::io::{Read, Seek, SeekFrom};
 
+/// Wrapper for `Cache` types that implements `std::io::Read` and `std::io::Seek`.
+///
+/// `CacheReader` has two main purposes:
+///
+/// * Allow the user to treat the cache the same as the original source, in
+/// that the source also implements `std::io::Read` and `std::io::Seek`. This may
+/// be useful when the user wants a drop in replacement, without the need for to
+/// specialize code for the cache.
+///
+/// * Allow caches to be layered. One cache could contain another cache which
+/// contains the original source. In theory, this could potentially improve
+/// performance in certain use cases, due to CPU cache locality. Use caution and
+/// be sure to benchmark your use case thoroughly when using this method, because
+/// while it is possible for this to improve performance, there is also a strong
+/// possibility that performance will be worse due to the added complexity. Also,
+/// this should only be done with `SwapCache` as the cache type for each layer.
+/// `FullCache` reads the entire source into memory, which defeats the purpose
+/// of a layered cache.
 pub struct CacheReader<C: Cache> {
     pos: u64,
     cache: C,
 }
 
 impl<C: Cache> CacheReader<C> {
+    /// Creates a new `CacheReader` containing the passed cache, and has
+    /// its position initialized to byte zero.
     pub fn new(cache: C) -> Self {
         Self {
             pos: 0,
@@ -14,14 +34,18 @@ impl<C: Cache> CacheReader<C> {
         }
     }
 
+    /// Destroys a `CacheReader` and returns the contained cache.
     pub fn into_inner(self) -> C {
         self.cache
     }
 
+    /// Returns an immutable reference to the contained cache.
     pub fn cache(&self) -> &C {
         &self.cache
     }
 
+    /// Returns the position of the reader as a byte offset from the
+    /// beginning of the source.
     pub fn position(&self) -> u64 {
         self.pos
     }

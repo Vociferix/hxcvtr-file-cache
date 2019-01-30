@@ -177,6 +177,14 @@ impl<T: Read + Seek> SwapCacheImpl<T> {
     }
 }
 
+/// A cache that swaps pages in and out of memory using an LRU policy.
+///
+/// `SwapCache` allocates in-memory frames which store pages from the
+/// source that have been swapped in. When a page needs to be swapped
+/// in, the least recently accessed page currently swapped in memory
+/// will be replaced by the new page. Because interior mutability is
+/// required, the primary functionality of `SwapCache` is wrapped with
+/// a mutex, which also makes it thread safe.
 pub struct SwapCache<T: Read + Seek> {
     sz: u64,
     cache_sz: usize,
@@ -184,6 +192,8 @@ pub struct SwapCache<T: Read + Seek> {
 }
 
 impl<T: Read + Seek> SwapCache<T> {
+    /// Creates a new `SwapCache` containing the passed source, and with pages
+    /// of size `page_size` bytes, and `frame_count` frames.
     pub fn new(source: T, page_size: usize, frame_count: usize) -> Result<Self> {
         let mut source = source;
         let len = match source.seek(SeekFrom::End(0)) {
@@ -205,7 +215,7 @@ impl<T: Read + Seek> SwapCache<T> {
 }
 
 impl<T: Read + Seek> Cache for SwapCache<T> {
-    type Input = T;
+    type Source = T;
 
     fn into_inner(self) -> Result<T> {
         match Mutex::into_inner(self.swap) {

@@ -82,11 +82,11 @@ fn general_test_1<C: Cache>(cache: C) {
     let mut buf = vec![0; ADV_HUCK_FINN.len()];
 
     let count = cache.read(0, &mut buf).unwrap();
-    assert_eq!(count, ADV_HUCK_FINN.len() as u64);
+    assert_eq!(count, ADV_HUCK_FINN.len());
     assert_eq!(buf, ADV_HUCK_FINN);
 
     let count = cache.read(0, &mut buf).unwrap();
-    assert_eq!(count, ADV_HUCK_FINN.len() as u64);
+    assert_eq!(count, ADV_HUCK_FINN.len());
     assert_eq!(buf, ADV_HUCK_FINN);
 }
 

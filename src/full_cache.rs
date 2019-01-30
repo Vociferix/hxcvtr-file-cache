@@ -4,12 +4,25 @@ use std::ops::{RangeBounds, Bound};
 
 use super::{Result, Error};
 
+/// A simple cache that reads the entire source into contiguous memory.
+///
+/// `FullCache` reads the entire source into a buffer on creation and
+/// never accesses the source again. Since the data is all in one
+/// contiguous chunk of memory, all calls to `Cache::traverse_chunks`
+/// on this type will result in at most a single chunk.
+///
+/// On its own, this cache type is relatively useless since it is
+/// simple enough to read a file or other external source into a
+/// buffer without the help of a crate. The purpose of `FullCache` is
+/// primarily to be a variant of `AutoCache`. See the documentation
+/// for `AutoCache` for more details.
 pub struct FullCache<T: Read + Seek> {
     source: T,
     data: Vec<u8>,
 }
 
 impl<T: Read + Seek> FullCache<T> {
+    /// Creates a new `FullCache` containing the passed source.
     pub fn new(source: T) -> Result<Self> {
         let mut source = source;
         let mut data = Vec::new();
@@ -24,7 +37,7 @@ impl<T: Read + Seek> FullCache<T> {
 }
 
 impl<T: Read + Seek> Cache for FullCache<T> {
-    type Input = T;
+    type Source = T;
 
     fn into_inner(self) -> Result<T> {
         let mut source = self.source;
