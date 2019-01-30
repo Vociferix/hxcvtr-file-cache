@@ -28,10 +28,7 @@ impl<C: Cache> CacheReader<C> {
     /// Creates a new `CacheReader` containing the passed cache, and has
     /// its position initialized to byte zero.
     pub fn new(cache: C) -> Self {
-        Self {
-            pos: 0,
-            cache,
-        }
+        Self { pos: 0, cache }
     }
 
     /// Destroys a `CacheReader` and returns the contained cache.
@@ -93,7 +90,7 @@ impl<C: Cache> Seek for CacheReader<C> {
                         offset
                     }
                 }
-            },
+            }
             SeekFrom::End(offset) => {
                 if offset < 0 {
                     let offset = -offset as u64;
@@ -105,14 +102,14 @@ impl<C: Cache> Seek for CacheReader<C> {
                 } else {
                     len
                 }
-            },
+            }
             SeekFrom::Start(offset) => {
                 if offset > len {
                     len
                 } else {
                     offset
                 }
-            },
+            }
         };
         Ok(self.pos)
     }

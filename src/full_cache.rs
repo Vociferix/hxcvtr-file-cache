@@ -1,8 +1,8 @@
 use super::Cache;
 use std::io::{Read, Seek, SeekFrom};
-use std::ops::{RangeBounds, Bound};
+use std::ops::{Bound, RangeBounds};
 
-use super::{Result, Error};
+use super::{Error, Result};
 
 /// A simple cache that reads the entire source into contiguous memory.
 ///
@@ -55,27 +55,47 @@ impl<T: Read + Seek> Cache for FullCache<T> {
         self.data.len()
     }
 
-    fn traverse_chunks<R: RangeBounds<u64>, F: FnMut(&[u8]) -> Result<()>>(&self, range: R, f: F) -> Result<()> {
+    fn traverse_chunks<R: RangeBounds<u64>, F: FnMut(&[u8]) -> Result<()>>(
+        &self,
+        range: R,
+        f: F,
+    ) -> Result<()> {
         let mut f = f;
         let len = self.data.len() as u64;
         let start = match range.start_bound() {
             Bound::Included(start) => {
-                if *start >= len { return Ok(()); } else { *start }
-            },
+                if *start >= len {
+                    return Ok(());
+                } else {
+                    *start
+                }
+            }
             Bound::Excluded(start) => {
                 let start = *start + 1;
-                if start > len { return Ok(()); } else { start }
-            },
+                if start > len {
+                    return Ok(());
+                } else {
+                    start
+                }
+            }
             Bound::Unbounded => 0,
         };
         let end = match range.end_bound() {
             Bound::Included(end) => {
-                if *end >= len { len } else { *end + 1 }
-            },
+                if *end >= len {
+                    len
+                } else {
+                    *end + 1
+                }
+            }
             Bound::Excluded(end) => {
-                if *end > len { len } else { *end }
-            },
-            Bound::Unbounded => len
+                if *end > len {
+                    len
+                } else {
+                    *end
+                }
+            }
+            Bound::Unbounded => len,
         };
         f(&self.data[start as usize..end as usize])?;
         Ok(())

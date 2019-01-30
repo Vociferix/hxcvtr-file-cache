@@ -1,10 +1,10 @@
 use super::Cache;
 use std::collections::HashMap;
 use std::io::{Read, Seek, SeekFrom};
-use std::ops::{RangeBounds, Bound};
+use std::ops::{Bound, RangeBounds};
 use std::sync::Mutex;
 
-use super::{Result, Error};
+use super::{Error, Result};
 
 struct Frame {
     data: Vec<u8>,
@@ -111,15 +111,12 @@ impl<T: Read + Seek> SwapCacheImpl<T> {
 
     fn load_page(&mut self, page: u64) -> Result<usize> {
         match self.map.remove(&self.frames[self.front].page) {
-            Some(_) => {},
+            Some(_) => {}
             None => unreachable!(),
         }
 
-        match self.source.seek(SeekFrom::Start(page * self.page_sz)) {
-            Err(e) => {
-                return Err(Error::from_io(e));
-            }
-            _ => {}
+        if let Err(e) = self.source.seek(SeekFrom::Start(page * self.page_sz)) {
+            return Err(Error::from_io(e));
         }
 
         match self.source.read(&mut self.frames[self.front].data) {
@@ -136,9 +133,7 @@ impl<T: Read + Seek> SwapCacheImpl<T> {
 
     fn promote_frame(&mut self, fidx: usize) {
         if self.back != self.front {
-            let (next_idx, prev_idx) = self.map_frame(fidx, |frame| {
-                (frame.next, frame.prev)
-            });
+            let (next_idx, prev_idx) = self.map_frame(fidx, |frame| (frame.next, frame.prev));
             if next_idx != NULL {
                 if prev_idx != NULL {
                     self.get_frame_mut(prev_idx).next = next_idx;
@@ -207,9 +202,13 @@ impl<T: Read + Seek> SwapCache<T> {
                 swap: Mutex::new(SwapCacheImpl::new(source, page_size, frame_count)?),
             })
         } else if page_size == 0 {
-            Err(Error::new_zero_cache("swap cache configured with zero pages"))
+            Err(Error::new_zero_cache(
+                "swap cache configured with zero pages",
+            ))
         } else {
-            Err(Error::new_zero_cache("swap cache configured with zero frames"))
+            Err(Error::new_zero_cache(
+                "swap cache configured with zero frames",
+            ))
         }
     }
 }
@@ -235,26 +234,46 @@ impl<T: Read + Seek> Cache for SwapCache<T> {
         self.cache_sz
     }
 
-    fn traverse_chunks<R: RangeBounds<u64>, F: FnMut(&[u8]) -> Result<()>>(&self, range: R, f: F) -> Result<()> {
+    fn traverse_chunks<R: RangeBounds<u64>, F: FnMut(&[u8]) -> Result<()>>(
+        &self,
+        range: R,
+        f: F,
+    ) -> Result<()> {
         let len = self.sz;
         let start = match range.start_bound() {
             Bound::Included(start) => {
-                if *start >= len { return Ok(()); } else { *start }
-            },
+                if *start >= len {
+                    return Ok(());
+                } else {
+                    *start
+                }
+            }
             Bound::Excluded(start) => {
                 let start = *start + 1;
-                if start > len { return Ok(()); } else { start }
-            },
+                if start > len {
+                    return Ok(());
+                } else {
+                    start
+                }
+            }
             Bound::Unbounded => 0,
         };
         let end = match range.end_bound() {
             Bound::Included(end) => {
-                if *end >= len { len } else { *end + 1 }
-            },
+                if *end >= len {
+                    len
+                } else {
+                    *end + 1
+                }
+            }
             Bound::Excluded(end) => {
-                if *end > len { len } else { *end }
-            },
-            Bound::Unbounded => len
+                if *end > len {
+                    len
+                } else {
+                    *end
+                }
+            }
+            Bound::Unbounded => len,
         };
         if start < len {
             let mut f = f;

@@ -15,8 +15,11 @@ const L2_SWAP_TEST_FRAMES: usize = 100;
 
 fn new_test_file() -> File {
     use std::io::Write;
-    let mut file = tempfile().expect("Failed to create temp file. This is an OS failure, not a crate bug.");
-    let len = file.write(ADV_HUCK_FINN).expect("Failed to write to temp file. This is an OS failure, not a crate bug.");
+    let mut file =
+        tempfile().expect("Failed to create temp file. This is an OS failure, not a crate bug.");
+    let len = file
+        .write(ADV_HUCK_FINN)
+        .expect("Failed to write to temp file. This is an OS failure, not a crate bug.");
     if len != ADV_HUCK_FINN.len() {
         panic!("Failed to write to temp file. This is an OS failure, not a crate bug.")
     }
@@ -40,7 +43,14 @@ fn test_auto_cache_full() -> AutoCache<File> {
 }
 
 fn test_layered_cache() -> SwapCache<CacheReader<SwapCache<File>>> {
-    SwapCache::new(CacheReader::new(SwapCache::new(new_test_file(), L2_SWAP_TEST_PAGE_SZ, L2_SWAP_TEST_FRAMES).unwrap()), L1_SWAP_TEST_PAGE_SZ, L1_SWAP_TEST_FRAMES).unwrap()
+    SwapCache::new(
+        CacheReader::new(
+            SwapCache::new(new_test_file(), L2_SWAP_TEST_PAGE_SZ, L2_SWAP_TEST_FRAMES).unwrap(),
+        ),
+        L1_SWAP_TEST_PAGE_SZ,
+        L1_SWAP_TEST_FRAMES,
+    )
+    .unwrap()
 }
 
 #[test]
@@ -75,7 +85,10 @@ fn auto_cache_swap_init_test() {
 fn layered_cache_swap_init_test() {
     let cache = test_layered_cache();
     assert_eq!(cache.len(), ADV_HUCK_FINN.len() as u64);
-    assert_eq!(cache.cache_size(), L1_SWAP_TEST_PAGE_SZ * L1_SWAP_TEST_FRAMES);
+    assert_eq!(
+        cache.cache_size(),
+        L1_SWAP_TEST_PAGE_SZ * L1_SWAP_TEST_FRAMES
+    );
 }
 
 fn general_test_1<C: Cache>(cache: C) {

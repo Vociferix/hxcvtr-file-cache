@@ -15,17 +15,17 @@
 //! cache and implements `std::io::Read` and `std::io::Seek`.
 
 mod auto_cache;
+mod cache_reader;
 mod full_cache;
 mod swap_cache;
-mod cache_reader;
 
 #[cfg(test)]
 mod tests;
 
 pub use auto_cache::AutoCache;
+pub use cache_reader::CacheReader;
 pub use full_cache::FullCache;
 pub use swap_cache::SwapCache;
-pub use cache_reader::CacheReader;
 
 use std::io::{Read, Seek};
 use std::ops::RangeBounds;
@@ -102,11 +102,12 @@ impl std::fmt::Display for Error {
             Error::ZeroCache(msg) => write!(f, "Zero Cache Error: {}", msg),
         }
     }
-
 }
 
 /// A `std::result::Result` with `hxcvtr_file_cache::Error` as the error type.
 pub type Result<T> = std::result::Result<T, Error>;
+
+#[allow(clippy::len_without_is_empty)]
 
 /// The common interface for the cache types in this crate.
 pub trait Cache {
@@ -131,7 +132,11 @@ pub trait Cache {
     /// entirely contained within the range, and are processed in ascending
     /// byte offset order. A range that reaches beyond the end of the source
     /// is valid, but traversal ends when the end of the source is reached.
-    fn traverse_chunks<R: RangeBounds<u64>, F: FnMut(&[u8]) -> Result<()>>(&self, range: R, f: F) -> Result<()>;
+    fn traverse_chunks<R: RangeBounds<u64>, F: FnMut(&[u8]) -> Result<()>>(
+        &self,
+        range: R,
+        f: F,
+    ) -> Result<()>;
 
     /// Fills a buffer with data from the source starting at the passed byte
     /// offset. Returns the number of bytes read into the buffer. The returned

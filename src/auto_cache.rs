@@ -29,7 +29,7 @@ pub enum AutoCache<T: Read + Seek> {
 use self::AutoCache::Full;
 use self::AutoCache::Swap;
 
-use super::{Result, Error};
+use super::{Error, Result};
 
 fn sqrt(n: usize) -> usize {
     let mut shift: isize = 2;
@@ -100,7 +100,11 @@ impl<T: Read + Seek> Cache for AutoCache<T> {
         }
     }
 
-    fn traverse_chunks<R: RangeBounds<u64>, F: FnMut(&[u8]) -> Result<()>>(&self, range: R, f: F) -> Result<()> {
+    fn traverse_chunks<R: RangeBounds<u64>, F: FnMut(&[u8]) -> Result<()>>(
+        &self,
+        range: R,
+        f: F,
+    ) -> Result<()> {
         match self {
             Full(ref full) => full.traverse_chunks(range, f),
             Swap(ref swap) => swap.traverse_chunks(range, f),
