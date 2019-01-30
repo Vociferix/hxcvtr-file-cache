@@ -35,8 +35,9 @@ addons:
       - libiberty-dev
 
 before_script:
-  - rustup component add clippy
-  - rustup component add fmt
+  - rustup update
+  - rustup component add clippy || rustup component add clippy-preview
+  - rustup component add rustfmt || rustup component add rustfmt-preview
 
 script: |
   export RUST_BACKTRACE=1 &&
