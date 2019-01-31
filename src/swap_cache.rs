@@ -4,7 +4,7 @@ use std::io::{Read, Seek, SeekFrom};
 use std::ops::{Bound, RangeBounds};
 use std::sync::Mutex;
 
-use super::{Error, Result};
+use super::{TraversalCode, Error, Result};
 
 struct Frame {
     data: Vec<u8>,
@@ -234,7 +234,7 @@ impl<T: Read + Seek> Cache for SwapCache<T> {
         self.cache_sz
     }
 
-    fn traverse_chunks<R: RangeBounds<u64>, F: FnMut(&[u8]) -> Result<()>>(
+    fn traverse_chunks<R: RangeBounds<u64>, F: FnMut(&[u8]) -> TraversalCode>(
         &self,
         range: R,
         f: F,
@@ -286,9 +286,10 @@ impl<T: Read + Seek> Cache for SwapCache<T> {
                 let chunk = (*guard).get_chunk(pos)?;
                 let new_pos = pos + chunk.len() as u64;
                 if new_pos > end {
-                    return f(&chunk[..(new_pos - pos) as usize]);
-                } else {
-                    f(chunk)?;
+                    let _ = f(&chunk[..(new_pos - pos) as usize]);
+                    return Ok(());
+                } else if let TraversalCode::Abort = f(chunk) {
+                    return Ok(());
                 }
                 pos = new_pos;
             }

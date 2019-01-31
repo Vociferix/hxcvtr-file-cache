@@ -1,4 +1,4 @@
-use super::{Cache, FullCache, SwapCache};
+use super::{Cache, FullCache, SwapCache, TraversalCode};
 
 use std::io::{Read, Seek, SeekFrom};
 use std::ops::RangeBounds;
@@ -100,7 +100,7 @@ impl<T: Read + Seek> Cache for AutoCache<T> {
         }
     }
 
-    fn traverse_chunks<R: RangeBounds<u64>, F: FnMut(&[u8]) -> Result<()>>(
+    fn traverse_chunks<R: RangeBounds<u64>, F: FnMut(&[u8]) -> TraversalCode>(
         &self,
         range: R,
         f: F,

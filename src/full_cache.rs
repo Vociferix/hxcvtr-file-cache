@@ -2,7 +2,7 @@ use super::Cache;
 use std::io::{Read, Seek, SeekFrom};
 use std::ops::{Bound, RangeBounds};
 
-use super::{Error, Result};
+use super::{TraversalCode, Error, Result};
 
 /// A simple cache that reads the entire source into contiguous memory.
 ///
@@ -55,7 +55,7 @@ impl<T: Read + Seek> Cache for FullCache<T> {
         self.data.len()
     }
 
-    fn traverse_chunks<R: RangeBounds<u64>, F: FnMut(&[u8]) -> Result<()>>(
+    fn traverse_chunks<R: RangeBounds<u64>, F: FnMut(&[u8]) -> TraversalCode>(
         &self,
         range: R,
         f: F,
@@ -97,7 +97,7 @@ impl<T: Read + Seek> Cache for FullCache<T> {
             }
             Bound::Unbounded => len,
         };
-        f(&self.data[start as usize..end as usize])?;
+        let _ = f(&self.data[start as usize..end as usize]);
         Ok(())
     }
 }

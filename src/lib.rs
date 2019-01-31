@@ -110,6 +110,11 @@ impl std::fmt::Display for Error {
 /// A `std::result::Result` with `hxcvtr_file_cache::Error` as the error type.
 pub type Result<T> = std::result::Result<T, Error>;
 
+pub enum TraversalCode {
+    Continue,
+    Abort,
+}
+
 #[allow(clippy::len_without_is_empty)]
 
 /// The common interface for the cache types in this crate.
@@ -135,7 +140,7 @@ pub trait Cache {
     /// entirely contained within the range, and are processed in ascending
     /// byte offset order. A range that reaches beyond the end of the source
     /// is valid, but traversal ends when the end of the source is reached.
-    fn traverse_chunks<R: RangeBounds<u64>, F: FnMut(&[u8]) -> Result<()>>(
+    fn traverse_chunks<R: RangeBounds<u64>, F: FnMut(&[u8]) -> TraversalCode>(
         &self,
         range: R,
         f: F,
@@ -148,13 +153,21 @@ pub trait Cache {
     fn read(&self, offset: u64, buffer: &mut [u8]) -> Result<usize> {
         use std::io::Write;
         let mut total = 0;
+        let mut result: Result<()> = Ok(());
         self.traverse_chunks(offset..buffer.len() as u64, |chunk| {
             total += match (&mut buffer[total..]).write(chunk) {
                 Ok(len) => len,
-                Err(e) => return Err(Error::from_io(e)),
+                Err(e) => {
+                    result = Err(Error::from_io(e));
+                    return TraversalCode::Abort;
+                },
             };
-            Ok(())
+            TraversalCode::Continue
         })?;
-        Ok(total)
+
+        match result {
+            Err(e) => Err(e),
+            _ => Ok(total),
+        }
     }
 }
