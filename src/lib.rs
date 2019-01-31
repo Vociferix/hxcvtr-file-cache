@@ -14,6 +14,9 @@
 //! This crate additionally provides the `CacheReader` type, which wraps a
 //! cache and implements `std::io::Read` and `std::io::Seek`.
 
+#![cfg_attr(feature = "cargo-clippy", deny(clippy::all))]
+#![deny(warnings)]
+
 mod auto_cache;
 mod cache_reader;
 mod full_cache;
