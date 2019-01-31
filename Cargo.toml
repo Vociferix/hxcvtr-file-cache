@@ -2,9 +2,60 @@
 name = "hxcvtr-file-cache"
 version = "0.1.0"
 authors = ["Jack Bernard <jack.a.bernard.jr@gmail.com>"]
+license = "MIT"
+description = "Read-only cache system for files. Part of the Hxcvtr core engine."
+repository = "https://github.com/Vociferix/hxcvtr-file-cache"
 edition = "2018"
 
 [dependencies]
 
 [dev-dependencies]
 tempfile = "3.0"
+
+[badges]
+travis-ci = { repository = "Vociferix/hxcvtr-file-cache", branch = "master" }
+codecov = { repository = "Vociferix/hxcvtr-file-cache", branch = "master", service = "github" }
+
+[profile.dev]
+opt-level = 0
+debug = true
+rpath = false
+lto = false
+debug-assertions = true
+codegen-units = 16
+panic = 'unwind'
+incremental = true
+overflow-checks = true
+
+[profile.release]
+opt-level = 3
+debug = false
+rpath = false
+lto = true
+debug-assertions = false
+codegen-units = 1
+panic = 'unwind'
+incremental = false
+overflow-checks = false
+
+[profile.test]
+opt-level = 0
+debug = 2
+rpath = false
+lto = false
+debug-assertions = true
+codegen-units = 16
+panic = 'unwind'
+incremental = true
+overflow-checks = true
+
+[profile.bench]
+opt-level = 3
+debug = false
+rpath = false
+lto = true
+debug-assertions = false
+codegen-units = 1
+panic = 'unwind'
+incremental = false
+overflow-checks = false
