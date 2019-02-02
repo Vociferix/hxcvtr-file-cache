@@ -59,10 +59,7 @@ impl<T: Read + Seek> AutoCache<T> {
             return Err(Error::new_zero_cache("AutoCache configured with no memory"));
         }
         let mut source = source;
-        let len = match source.seek(SeekFrom::End(0)) {
-            Ok(len) => len,
-            Err(e) => return Err(Error::from_io(e)),
-        };
+        let len = source.seek(SeekFrom::End(0))?;
         if len > mem_max as u64 {
             let page_sz = sqrt(mem_max);
             let mut frame_count = page_sz + 1;

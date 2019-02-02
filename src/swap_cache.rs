@@ -30,21 +30,13 @@ impl<T: Read + Seek> SwapCacheImpl<T> {
         let mut frames: Vec<Frame> = Vec::new();
         let mut map: HashMap<u64, usize> = HashMap::new();
         let last = frame_count - 1;
-        match source.seek(SeekFrom::Start(0)) {
-            Ok(_) => {}
-            Err(e) => {
-                return Err(Error::from_io(e));
-            }
-        }
+        source.seek(SeekFrom::Start(0))?;
         frames.reserve_exact(frame_count as usize);
         map.reserve(frame_count as usize);
         if frame_count == 1 {
             map.insert(0, 0);
             let mut data = vec![0; page_size as usize];
-            match source.read(&mut data) {
-                Ok(_) => {}
-                Err(e) => return Err(Error::from_io(e)),
-            }
+            source.read(&mut data)?;
             frames.push(Frame {
                 data,
                 page: 0,
@@ -55,10 +47,7 @@ impl<T: Read + Seek> SwapCacheImpl<T> {
             for i in 0..frame_count {
                 map.insert(i as u64, i);
                 let mut data = vec![0; page_size as usize];
-                match source.read(&mut data) {
-                    Ok(_) => {}
-                    Err(e) => return Err(Error::from_io(e)),
-                }
+                source.read(&mut data)?;
                 if i == 0 {
                     frames.push(Frame {
                         data,
@@ -114,20 +103,10 @@ impl<T: Read + Seek> SwapCacheImpl<T> {
             Some(_) => {}
             None => unreachable!(),
         }
-
-        if let Err(e) = self.source.seek(SeekFrom::Start(page * self.page_sz)) {
-            return Err(Error::from_io(e));
-        }
-
-        match self.source.read(&mut self.frames[self.front].data) {
-            Ok(_) => {}
-            Err(e) => return Err(Error::from_io(e)),
-        }
-
+        self.source.seek(SeekFrom::Start(page * self.page_sz))?;
+        self.source.read(&mut self.frames[self.front].data)?;
         self.frames[self.front].page = page;
-
         self.map.insert(page, self.front);
-
         Ok(self.front)
     }
 
@@ -191,10 +170,7 @@ impl<T: Read + Seek> SwapCache<T> {
     /// of size `page_size` bytes, and `frame_count` frames.
     pub fn new(source: T, page_size: usize, frame_count: usize) -> Result<Self> {
         let mut source = source;
-        let len = match source.seek(SeekFrom::End(0)) {
-            Ok(len) => len,
-            Err(e) => return Err(Error::from_io(e)),
-        };
+        let len = source.seek(SeekFrom::End(0))?;
         if page_size != 0 && frame_count != 0 {
             Ok(SwapCache {
                 sz: len,
@@ -217,13 +193,9 @@ impl<T: Read + Seek> Cache for SwapCache<T> {
     type Source = T;
 
     fn into_inner(self) -> Result<T> {
-        match Mutex::into_inner(self.swap) {
-            Ok(mut swap) => match swap.source.seek(SeekFrom::Start(0)) {
-                Err(e) => Err(Error::from_io(e)),
-                _ => Ok(swap.source),
-            },
-            Err(e) => Err(Error::from_poison(e)),
-        }
+        let mut swap = Mutex::into_inner(self.swap)?;
+        swap.source.seek(SeekFrom::Start(0))?;
+        Ok(swap.source)
     }
 
     fn len(&self) -> u64 {
@@ -277,10 +249,7 @@ impl<T: Read + Seek> Cache for SwapCache<T> {
         };
         if start < len {
             let mut f = f;
-            let mut guard = match self.swap.lock() {
-                Ok(guard) => guard,
-                Err(e) => return Err(Error::from_poison(e)),
-            };
+            let mut guard = self.swap.lock()?;
             let mut pos = start;
             loop {
                 let chunk = (*guard).get_chunk(pos)?;

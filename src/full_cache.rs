@@ -2,7 +2,7 @@ use super::Cache;
 use std::io::{Read, Seek, SeekFrom};
 use std::ops::{Bound, RangeBounds};
 
-use super::{Error, Result};
+use super::Result;
 
 /// A simple cache that reads the entire source into contiguous memory.
 ///
@@ -26,13 +26,9 @@ impl<T: Read + Seek> FullCache<T> {
     pub fn new(source: T) -> Result<Self> {
         let mut source = source;
         let mut data = Vec::new();
-        match source.seek(SeekFrom::Start(0)) {
-            Err(e) => Err(Error::from_io(e)),
-            _ => match source.read_to_end(&mut data) {
-                Ok(_) => Ok(FullCache { source, data }),
-                Err(e) => Err(Error::from_io(e)),
-            },
-        }
+        source.seek(SeekFrom::Start(0))?;
+        source.read_to_end(&mut data)?;
+        Ok(FullCache { source, data })
     }
 }
 
@@ -41,10 +37,8 @@ impl<T: Read + Seek> Cache for FullCache<T> {
 
     fn into_inner(self) -> Result<T> {
         let mut source = self.source;
-        match source.seek(SeekFrom::Start(0)) {
-            Err(e) => Err(Error::from_io(e)),
-            _ => Ok(source),
-        }
+        source.seek(SeekFrom::Start(0))?;
+        Ok(source)
     }
 
     fn len(&self) -> u64 {
