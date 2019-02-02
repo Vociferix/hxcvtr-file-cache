@@ -30,9 +30,9 @@ pub use cache_reader::CacheReader;
 pub use full_cache::FullCache;
 pub use swap_cache::SwapCache;
 
+use std::convert::From;
 use std::io::{Read, Seek};
 use std::ops::RangeBounds;
-use std::convert::From;
 
 #[derive(Debug)]
 /// Error type for `hxcvtr-file-cache`
